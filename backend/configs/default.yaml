@@ -1,0 +1,25 @@
+seed: 0
+
+paths:
+  data_root: "C:/Users/mayan/datasets/mvtec_ad"
+  checkpoints: checkpoints
+  artifacts: artifacts
+  results: results
+
+categories: [bottle, cable, capsule, carpet, grid, hazelnut, leather, metal_nut,
+             pill, screw, tile, toothbrush, transistor, wood, zipper]
+
+data:
+  resize: 256
+  crop: 224
+  val_frac: 0.1
+  num_workers: 2
+  batch_size: 32
+
+patchcore:
+  backbone: resnet18
+  layers: [layer2, layer3]
+  coreset_ratio: 0.1
+  proj_dim: 128
+  k: 1
+  sigma: 4
