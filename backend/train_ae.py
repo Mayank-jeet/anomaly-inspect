@@ -70,3 +70,14 @@ def train_one_category(cfg, category, device):
     print(f"[{category}] checkpoints.zip updated")
 
     return best_val
+def main():
+    cfg = load_config()
+    set_seed(cfg["seed"])
+    device = "cuda" if torch.cuda.is_available() else "cpu"
+    print("device:", device)
+    for cat in cfg["categories"]:
+        train_one_category(cfg, cat, device)
+
+
+if __name__ == "__main__":
+    main()
