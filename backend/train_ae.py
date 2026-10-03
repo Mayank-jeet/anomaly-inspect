@@ -64,17 +64,9 @@ def train_one_category(cfg, category, device):
 
         print(f"[{category}] epoch {epoch+1}/{EPOCHS}  train={train_loss:.5f}  val={val_loss:.5f}")
 
+    # Save a zip after EVERY category finishes, not just at the end of the whole script
+    import subprocess
+    subprocess.run(["zip", "-r", "-q", "/kaggle/working/checkpoints.zip", str(ckpt_dir)])
+    print(f"[{category}] checkpoints.zip updated")
+
     return best_val
-
-
-def main():
-    cfg = load_config()
-    set_seed(cfg["seed"])
-    device = "cuda" if torch.cuda.is_available() else "cpu"
-    print("device:", device)
-    for cat in cfg["categories"]:
-        train_one_category(cfg, cat, device)
-
-
-if __name__ == "__main__":
-    main()
