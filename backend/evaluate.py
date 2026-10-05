@@ -11,6 +11,9 @@ from models.autoencoder import ConvAE
 from utils.common import load_config, set_seed
 from utils.metrics import image_auroc, pixel_auroc
 
+import faiss
+from models.feature_extractor import PatchFeatureExtractor
+from models.patchcore import PatchCoreScorer
 
 def evaluate_category(cfg, category, device):
     root = cfg["paths"]["data_root"]
@@ -43,6 +46,34 @@ def evaluate_category(cfg, category, device):
     pix_auroc = pixel_auroc(np.stack(all_masks), np.stack(all_maps))
     return img_auroc, pix_auroc
 
+def evaluate_category_patchcore(cfg, category, extractor, device):
+    root = cfg["paths"]["data_root"]
+    bank = np.load(cfg["paths"]["artifacts"] / "banks" / f"{category}.npy")
+    scorer = PatchCoreScorer(bank)
+
+    test_ds = MVTecDataset(root, category, "test")
+    test_dl = DataLoader(test_ds, batch_size=16, shuffle=False)
+
+    all_labels, all_scores = [], []
+    all_masks, all_maps = [], []
+
+    with torch.no_grad():
+        for batch in test_dl:
+            x = batch["image"].to(device)
+            patches = extractor.extract_patches(x).cpu().numpy()  # [B*784, 384]
+            B = x.size(0)
+            patches = patches.reshape(B, 784, -1)
+
+            for i in range(B):
+                score, score_map = scorer.score_image(patches[i])
+                all_scores.append(score)
+                all_labels.append(int(batch["label"][i]))
+                all_maps.append(score_map)
+                all_masks.append(batch["mask"][i, 0].numpy())
+
+    img_auroc = image_auroc(all_labels, all_scores)
+    pix_auroc = pixel_auroc(np.stack(all_masks), np.stack(all_maps))
+    return img_auroc, pix_auroc
 
 def main():
     cfg = load_config()
@@ -55,6 +86,21 @@ def main():
         img_auroc, pix_auroc = evaluate_category(cfg, cat, device)
         print(f"[{cat}] image_auroc={img_auroc:.4f}  pixel_auroc={pix_auroc:.4f}")
         rows.append({"category": cat, "image_auroc": img_auroc, "pixel_auroc": pix_auroc})
+    extractor = PatchFeatureExtractor().to(device).eval()
+    pc_rows = []
+    for cat in cfg["categories"]:
+        img_auroc, pix_auroc = evaluate_category_patchcore(cfg, cat, extractor, device)
+        print(f"[{cat}] PatchCore image_auroc={img_auroc:.4f}  pixel_auroc={pix_auroc:.4f}")
+        pc_rows.append({"category": cat, "image_auroc": img_auroc, "pixel_auroc": pix_auroc})
+
+    pc_df = pd.DataFrame(pc_rows)
+    pc_mean = {"category": "mean", "image_auroc": pc_df["image_auroc"].mean(),
+               "pixel_auroc": pc_df["pixel_auroc"].mean()}
+    pc_df = pd.concat([pc_df, pd.DataFrame([pc_mean])], ignore_index=True)
+
+    pc_out_path = cfg["paths"]["results"] / "tables" / "patchcore.csv"
+    pc_df.to_csv(pc_out_path, index=False)
+    print(f"saved to {pc_out_path}")
 
     df = pd.DataFrame(rows)
     mean_row = {"category": "mean", "image_auroc": df["image_auroc"].mean(),
