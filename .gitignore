@@ -6,7 +6,8 @@ __pycache__/
 .env
 
 backend/checkpoints/
-backend/artifacts/
+backend/artifacts/banks/
+backend/artifacts/onnx/
 
 .ipynb_checkpoints/
 
