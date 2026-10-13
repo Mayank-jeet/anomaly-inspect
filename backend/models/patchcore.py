@@ -9,6 +9,7 @@ class PatchCoreScorer:
     def __init__(self, bank: np.ndarray):
         """bank: [M, 384] float32, the coreset memory bank for one category."""
         bank = np.ascontiguousarray(bank, dtype=np.float32)
+        # contiguous is required as FAISS expects contiguous arrays, otherwise it will throw an error
         self.index = faiss.IndexFlatL2(bank.shape[1])
         self.index.add(bank)
 
