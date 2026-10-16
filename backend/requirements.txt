@@ -10,3 +10,5 @@ matplotlib==3.9.2
 pytest==8.3.3
 ipykernel==6.29.5
 pandas==3.0.6
+onnx==1.17.0
+onnxruntime==1.20.1
