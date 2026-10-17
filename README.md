@@ -29,7 +29,8 @@ PatchCore beats the autoencoder on **every one of the 15 categories**, several r
 - Frozen, ImageNet-pretrained ResNet-18 feature extractor (`layer2`+`layer3`, no fine-tuning)
 - Greedy coreset subsampling to keep memory banks small without losing much accuracy
 - FAISS nearest-neighbor search for real-time patch scoring
-- Per-category calibration (threshold + heatmap normalization) from validation data only — test data is never used to tune anything
+- Per-category calibration (verdict threshold + heatmap normalization) from validation data only
+- Out-of-distribution guard: images that don't match the training setup are reported as "Unsupported image" instead of getting a misleading defective verdict (see [Out-of-distribution guard](#out-of-distribution-guard))
 - 3 ablation families (backbone depth, coreset ratio, blur sigma) with accuracy, bank size, *and* latency reported together
 - Per-defect-type error analysis with a heatmap gallery
 - ONNX export with numerical verification against the original PyTorch model
@@ -99,11 +100,16 @@ anomaly-inspect/
 │   ├── configs/default.yaml       # every hyperparameter in one place
 │   ├── train_ae.py                # Stage B: autoencoder training
 │   ├── build_memory_bank.py       # Stage C: PatchCore memory banks
-│   ├── calibrate.py               # thresholds + normalization (validation only)
+│   ├── calibrate.py               # thresholds, heatmap range, OOD cutoff (validation only)
 │   ├── evaluate.py                # Stage D: AUROC tables (test split)
 │   ├── run_ablations.py           # Stage E: ablation study
 │   ├── export_onnx.py             # Stage F: ONNX export + verification
-│   └── benchmark.py                # latency and size report
+│   ├── benchmark.py               # latency and size report
+│   ├── make_samples.py            # small demo images per category
+│   ├── check_ood.py               # sanity check of the out-of-distribution rule
+│   ├── explore_ood_stats.py       # compares candidate out-of-distribution statistics
+│   ├── tests/                     # pytest: transforms, dataset, coreset, metrics, API
+│   └── samples/                   # demo images served by /samples
 │
 └── web/                            # React frontend
     └── src/
@@ -117,7 +123,8 @@ anomaly-inspect/
 | `models/feature_extractor.py` | ResNet-18 `layer2`+`layer3` → upsample → concat → 3×3 avg-pool → 384-dim patch features |
 | `models/coreset.py` | Greedy k-center selection (GPU-accelerated) to shrink the patch set before storing it |
 | `models/patchcore.py` | FAISS `IndexFlatL2` nearest-neighbor search → score map → image score |
-| `calibrate.py` | Per-category threshold (`mean + 3·std` of normal validation scores) and heatmap min/max — reads validation data only |
+| `calibrate.py` | Per-category threshold (`mean + 3·std` of normal validation scores), heatmap min/max, and the out-of-distribution cutoff — reads validation data only |
+| `check_ood.py` | Read-only sanity check: how many MVTec test images the out-of-distribution rule would reject, and the score of any image you pass in |
 | `api/bank_cache.py` | Downloads and caches memory banks on first request per category; evicts least-recently-used when full |
 
 ---
@@ -159,6 +166,38 @@ ResNet-18 (frozen, ImageNet-pretrained)
 The autoencoder baseline follows a simpler path: encode → decode → per-pixel squared reconstruction error → same max-based scoring.
 
 Both methods train **one model per category** (15 total), since a screw and a bottle have nothing in common to generalize across.
+
+---
+
+## Out-of-distribution guard
+
+PatchCore is a one-class novelty detector: "normal" means "looks like the training images" — same camera, background, lighting and scale. A photo from a different setup (say, a random toothbrush picture from the web) moves nearly **every** patch away from the memory bank, so the image score lands far above the threshold and the heatmap saturates uniformly. Without a guard, the demo would confidently label such an image "defective".
+
+So `/predict` checks the image first:
+
+```text
+min patch distance  >  per-category OOD cutoff   ─►  "Unsupported image" (no verdict, no heatmap)
+otherwise                                        ─►  normal defective / normal verdict + heatmap
+```
+
+**Statistic: the minimum patch distance** — how close the *best-matching* patch is to the memory bank. An image from the training setup always contains some patches that match the bank (background, context), even when the defect is global (`metal_nut` "flip", `transistor` "misplaced"). An image from another camera, background or object has none, so even its minimum is far away.
+
+I compared four statistics (`explore_ood_stats.py`). Values are multiples of each statistic's maximum on normal validation images:
+
+| Statistic | Worst MVTec test image | Two external toothbrush photos | Separation |
+|---|---|---|---|
+| median | 1.94 | 1.91 / 2.63 | ~1.0× (none) |
+| p25 | 1.62 | 2.08 / 2.36 | 1.3× |
+| p10 | 1.38 | 2.58 / 2.79 | 1.9× |
+| **min** | **1.42** | **3.54 / 4.20** | **2.5×** |
+
+The median — my first choice — could not separate globally-defective MVTec images from unrelated photos; the minimum separated them best.
+
+**Cutoff:** the larger of `mean + 5·std` and `2.0 × max` of the normal validation minimums, per category (`calibrate.py`). `check_ood.py` is the sanity script that reports how many MVTec test images the rule would reject.
+
+**Honest caveats:**
+- The 2.0× margin was set between the worst in-setup MVTec test image and the external photos, so it was informed by the test split and only two outside images — a design choice, not a purely validation-derived value.
+- It rejects *clearly* different images, not subtle shifts, and passing the guard does not guarantee a correct verdict.
 
 ---
 
@@ -212,7 +251,9 @@ Run on a 4-category subset (`bottle`, `carpet`, `screw`, `metal_nut`); one setti
 
 *Ablations are measured on the test split to understand method behavior, not to pick the deployed configuration — that would leak test information into the design. The deployed API uses the original baseline settings.*
 
-### Latency and size (full 15 categories, CPU)
+### Latency and size (full 15 categories, CPU, single thread)
+
+Measured with `python benchmark.py --threads 1` (ONNX Runtime and FAISS each limited to one thread, to approximate a small host); batch size 1, median over 100 runs after warm-up, including image decoding.
 
 | | Mean | Total |
 |---|---|---|
@@ -250,12 +291,13 @@ See `backend/notebooks/03_heatmap_gallery.ipynb` for the full gallery and per-ca
 
 - **One model per category, not one shared model.** A screw and a carpet texture share no useful visual structure; training per-category keeps each memory bank small and each model specialized.
 - **Train on normal images only.** Matches the realistic constraint of a production line, where defective examples are rare, and matches MVTec AD's intended evaluation protocol.
-- **Calibration reads only validation data, never test.** `calibrate.py` and `evaluate.py` are kept as separate scripts specifically so test leakage into threshold-tuning is structurally hard to introduce by accident.
+- **Calibration reads only validation data, never test.** `calibrate.py` and `evaluate.py` are kept as separate scripts specifically so test leakage into threshold-tuning is structurally hard to introduce by accident. The one deliberate exception is the margin of the out-of-distribution guard, which was sanity-checked against MVTec test images (see [Out-of-distribution guard](#out-of-distribution-guard)) — documented rather than hidden.
 - **ONNX + ONNX Runtime for serving, not PyTorch.** `api/requirements.txt` has no torch dependency — this keeps the deployed image small enough for a 512 MB free host and avoids installing a multi-hundred-MB deep learning framework just to run a frozen forward pass.
 - **Artifacts delivered via GitHub Release + download-on-startup, not git.** Memory banks and the ONNX model total ~405 MB — too large to commit cleanly. `bank_cache.py`'s `ensure_file` downloads each one the first time it's needed and caches it on disk.
 - **Lazy LRU bank cache, not "load all 15 at startup."** Free-tier RAM (512 MB) can't hold every category's bank at once; loading on demand and evicting the least-recently-used keeps memory bounded regardless of how many categories exist.
 - **Greedy coreset instead of keeping every patch.** A full category's patch set can exceed 150,000 vectors; coreset subsampling keeps a representative 10% (or less, per the ablation) without a proportional accuracy loss.
 - **Ablations report latency and bank size alongside accuracy**, not accuracy alone — an accuracy gain that costs 10x the memory or latency may not be worth it on a resource-constrained host.
+- **Reject unsupported images instead of guessing.** A one-class detector has no notion of "this isn't even the right kind of image", so a photo from another setup would always come back "defective" with a meaningless heatmap. A calibrated out-of-distribution check on the minimum patch distance turns that into an explicit "Unsupported image" state. The minimum was chosen over the median because global defects (a flipped nut) shift the median almost as much as an unrelated photo does.
 
 ---
 
@@ -270,6 +312,7 @@ See `backend/notebooks/03_heatmap_gallery.ipynb` for the full gallery and per-ca
 
 - Model artifacts are hosted as [GitHub Release assets](https://github.com/Mayank-jeet/anomaly-inspect/releases/tag/artifacts-v1) and downloaded on first use per category — **the first prediction for a given category will be slower** (downloading its ~26 MB bank); subsequent requests for that category are fast.
 - Render's free tier spins down when idle — the first request after inactivity may take a few extra seconds to wake the server.
+- The models assume controlled imaging (fixed camera, plain background, like MVTec AD). Use the built-in samples or images taken the same way; arbitrary photos from the web are reported as **"Unsupported image"** instead of being judged (see [Out-of-distribution guard](#out-of-distribution-guard)).
 
 ---
 
@@ -289,11 +332,14 @@ pip install -r requirements.txt
 python train_ae.py              # autoencoder baseline, all 15 categories
 python build_memory_bank.py     # PatchCore memory banks
 python evaluate.py              # AE + PatchCore AUROC tables
-python calibrate.py             # per-category thresholds (validation only)
+python calibrate.py             # per-category thresholds + OOD cutoff (validation only)
 python run_ablations.py         # ablation study
 python export_onnx.py           # ONNX export + verification
 python benchmark.py             # latency and size report
+python check_ood.py             # sanity check of the out-of-distribution rule
 ```
+
+> **Windows note:** scripts that run PyTorch on the CPU and FAISS in the same process can abort with `OMP: Error #15` (both libraries bundle their own OpenMP runtime). `export_onnx.py`, `run_ablations.py`, `calibrate.py`, `check_ood.py`, `explore_ood_stats.py` and the API tests set `KMP_DUPLICATE_LIB_OK=TRUE` for this; for any other script, set it in your shell first (`$env:KMP_DUPLICATE_LIB_OK="TRUE"` in PowerShell). The deployed API has no PyTorch, so it never loads two OpenMP runtimes.
 
 ### Backend — running the API locally (slim, no torch)
 ```bash
@@ -316,7 +362,9 @@ npm run dev
 | `GET /health` | ONNX load status, category count |
 | `GET /categories` | List available categories |
 | `GET /samples/{category}` | Sample images (good + defective) for the demo picker |
-| `POST /predict` | Upload an image + category, get verdict, score, heatmap |
+| `POST /predict` | Upload an image + category; returns the verdict, score and heatmap — or an out-of-distribution flag for unsupported images |
+
+`/predict` response fields: `category`, `out_of_distribution`, `ood_score`, `ood_threshold`, `score`, `threshold`, `is_defective`, `heatmap_png_base64`, `input_png_base64` (the 224×224 crop the model saw, which the heatmap aligns with), `latency_ms`. When `out_of_distribution` is `true`, `is_defective` and `heatmap_png_base64` are `null`. Errors: `400` (not a PNG/JPEG or undecodable), `413` (over 5 MB), `422` (unknown category), `503` (a category's memory bank is unavailable).
 
 ## Deployment
 
@@ -355,6 +403,7 @@ Render (FastAPI + ONNX Runtime, CPU)
 - Ablations were run on a 4-category subset, not all 15, for faster turnaround; a full 15-category run would confirm whether the trends generalize everywhere.
 - The free-tier deployment has no persistent model cache across cold starts — each new instance re-downloads artifacts on first use per category.
 - No fine-tuning of the ResNet-18 backbone; features are used exactly as ImageNet pretraining produced them.
+- The models assume controlled imaging (same camera, background, lighting). The out-of-distribution guard rejects clearly different images, but it is a calibrated statistical rule: its margin was chosen with a sanity check against MVTec test images and only two external photos, it will not catch subtle shifts, and passing it does not guarantee a correct verdict.
 
 ## Future Improvements
 
@@ -363,6 +412,7 @@ Render (FastAPI + ONNX Runtime, CPU)
 - Full 15-category ablation run (currently a 4-category subset) to confirm the layer2-only finding generalizes
 - WideResNet-50 backbone ablation (listed as an option in the original plan, not yet run)
 - A persistent artifact cache or a paid tier to avoid repeated cold-start downloads
+- Evaluate and tighten the out-of-distribution guard on a larger, more varied set of external images (and compare against a feature-statistics or lightweight learned detector)
 
 ---
 
