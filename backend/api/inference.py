@@ -70,13 +70,37 @@ class Inferencer:
         patches = np.ascontiguousarray(feat.transpose(0, 2, 3, 1).reshape(-1, feat.shape[1]))  # [784,384]
 
         scorer = self.cache.get(category)
-        score, score_map = scorer.score_image(patches, sigma=self.sigma)  # same call as evaluate.py
+        score, score_map, dist = scorer.score_image_full(patches, sigma=self.sigma)  # same maths as evaluate.py
 
         st = self.stats[category]
+
+        # Out-of-distribution check on the MIN patch distance (how close the best-matching patch is
+        # to the bank). An image from the training setup always has some matching patches, even with
+        # a global defect; an image from another camera/background/object has none. Stats files from
+        # before this check existed have no cutoff, in which case the check is skipped.
+        ood_threshold = st.get("ood_threshold")
+        ood_score = float(dist.min())
+        if ood_threshold is not None and ood_score > ood_threshold:
+            return {
+                "category": category,
+                "out_of_distribution": True,
+                "ood_score": round(ood_score, 5),
+                "ood_threshold": round(ood_threshold, 5),
+                "score": round(score, 5),
+                "threshold": round(st["threshold"], 5),
+                "is_defective": None,          # no verdict: the image is outside what the model knows
+                "heatmap_png_base64": None,    # and the heatmap would just be saturated everywhere
+                "input_png_base64": to_png_b64(denormalize(arr)),
+                "latency_ms": round((time.perf_counter() - t0) * 1000.0, 1),
+            }
+
         heat = normalize_map(score_map, st["score_min"], st["score_max"])  # stats come from VAL images only
 
         return {
             "category": category,
+            "out_of_distribution": False,
+            "ood_score": round(ood_score, 5),
+            "ood_threshold": None if ood_threshold is None else round(ood_threshold, 5),
             "score": round(score, 5),
             "threshold": round(st["threshold"], 5),
             "is_defective": bool(score > st["threshold"]),

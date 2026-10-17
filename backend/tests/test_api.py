@@ -91,13 +91,30 @@ def test_predict_response_shape(client):
     r = _post(client, path.read_bytes(), "bottle")
     assert r.status_code == 200
     body = r.json()
-    assert set(body) == {"category", "score", "threshold", "is_defective",
-                         "heatmap_png_base64", "input_png_base64", "latency_ms"}
+    assert set(body) == {"category", "out_of_distribution", "ood_score", "ood_threshold", "score",
+                         "threshold", "is_defective", "heatmap_png_base64", "input_png_base64",
+                         "latency_ms"}
     assert body["category"] == "bottle" and body["latency_ms"] > 0
+    assert body["out_of_distribution"] is False          # an in-distribution MVTec image must not be rejected
     assert body["is_defective"] == (body["score"] > body["threshold"])
     for key in ("heatmap_png_base64", "input_png_base64"):
         img = Image.open(io.BytesIO(base64.b64decode(body[key])))
         assert img.size == (224, 224)
+
+
+@needs_data
+def test_out_of_distribution_image_is_rejected(client):
+    """Random colored noise looks nothing like a bottle: expect 'unsupported image', no verdict."""
+    rng = np.random.default_rng(0)
+    noise = Image.fromarray(rng.integers(0, 256, (256, 256, 3), dtype=np.uint8))
+    buf = io.BytesIO()
+    noise.save(buf, format="PNG")
+    r = _post(client, buf.getvalue(), "bottle")
+    assert r.status_code == 200
+    body = r.json()
+    assert body["out_of_distribution"] is True
+    assert body["is_defective"] is None and body["heatmap_png_base64"] is None
+    assert body["ood_score"] > body["ood_threshold"]
 
 
 @needs_data

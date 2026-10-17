@@ -19,12 +19,20 @@ class PatchCoreScorer:
         sq_dist, _ = self.index.search(patches, k=1)  # [N, 1], squared L2
         return np.sqrt(sq_dist[:, 0])
 
-    def score_image(self, patches: np.ndarray, grid_size: int = 28,
-                     out_size: int = 224, sigma: float = 4.0):
-        """patches: [784, 384] for ONE image. Returns (image_score, score_map[out_size,out_size])."""
+    def score_image_full(self, patches: np.ndarray, grid_size: int = 28,
+                         out_size: int = 224, sigma: float = 4.0):
+        """Like score_image, but also returns the raw per-patch distances [784]. The distances are
+        needed for the out-of-distribution check (median patch distance), so we get them from the
+        same FAISS search instead of searching twice."""
         dist = self.score_patches(patches)                      # [784]
         score_map = dist.reshape(grid_size, grid_size).astype(np.float32)
         score_map = upsample_map(score_map, out_size)
         score_map = blur_map(score_map, sigma)
         image_score = float(score_map.max())
+        return image_score, score_map, dist
+
+    def score_image(self, patches: np.ndarray, grid_size: int = 28,
+                     out_size: int = 224, sigma: float = 4.0):
+        """patches: [784, 384] for ONE image. Returns (image_score, score_map[out_size,out_size])."""
+        image_score, score_map, _ = self.score_image_full(patches, grid_size, out_size, sigma)
         return image_score, score_map

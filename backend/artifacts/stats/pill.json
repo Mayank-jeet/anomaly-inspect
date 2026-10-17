@@ -1,7 +1,11 @@
 {
-  "threshold": 2.2840986250177315,
-  "score_min": 0.5636128783226013,
+  "threshold": 2.284098321667179,
+  "score_min": 0.5636125802993774,
   "score_max": 2.1011149883270264,
-  "val_score_mean": 1.9235134216455312,
-  "val_score_std": 0.12019506779073344
+  "val_score_mean": 1.9235134170605586,
+  "val_score_std": 0.1201949682022068,
+  "ood_threshold": 1.1615265607833862,
+  "val_patchmin_mean": 0.370326055930211,
+  "val_patchmin_std": 0.0834021782668455,
+  "val_patchmin_max": 0.5807632803916931
 }

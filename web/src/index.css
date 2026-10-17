@@ -164,6 +164,9 @@ select {
 .badge { padding: 6px 14px; border-radius: 999px; font-weight: 700; color: #fff; }
 .badge.ok { background: var(--ok); }
 .badge.bad { background: var(--bad); }
+.badge.warn { background: #d98e04; }
+.ood-text { margin: 0 0 16px; line-height: 1.5; }
+.ood-figure { max-width: 320px; }
 .latency { color: var(--muted); font-size: 0.9rem; }
 
 .scorebar { position: relative; height: 10px; background: var(--border); border-radius: 999px; overflow: hidden; }
