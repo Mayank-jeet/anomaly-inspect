@@ -1,8 +1,8 @@
-"""Stage F / Step 16: export the frozen feature extractor to ONNX and verify it.
+"""Export the frozen feature extractor to ONNX and verify it.
 
 Why this exists
 ---------------
-The deployed API (Step 18) runs on a small free host WITHOUT PyTorch. ONNX is a
+The deployed API runs on a small free host WITHOUT PyTorch. ONNX is a
 framework-neutral file format that stores the network's graph + weights, so the
 API can run the exact same network with just `onnxruntime`.
 
@@ -14,15 +14,6 @@ Writes: artifacts/onnx/feature_extractor.onnx
 
 Run (from backend/):  python export_onnx.py
 """
-import os
-
-# Windows-only dev workaround. torch ships Intel's OpenMP runtime (libiomp5md.dll) and
-# faiss-cpu ships LLVM's (libomp140.dll). Loading both in ONE process aborts with
-# "OMP: Error #15". This script needs torch AND faiss together (to compare score paths),
-# so we allow the duplicate. It must be set BEFORE torch/faiss are imported.
-# Not needed in the deployed API: that process has faiss + onnxruntime but no torch.
-os.environ.setdefault("KMP_DUPLICATE_LIB_OK", "TRUE")
-
 import numpy as np
 import torch
 
