@@ -420,9 +420,6 @@ Render (FastAPI + ONNX Runtime, CPU)
 
 [MVTec AD](https://www.mvtec.com/company/research/datasets/mvtec-ad) is licensed CC BY-NC-SA 4.0, for non-commercial use, and is not redistributed in this repository — download it from the official source.
 
-## Resume Bullet
-
-> Built an unsupervised defect-detection system on MVTec AD comparing a convolutional-autoencoder baseline against a PatchCore-style method (ResNet-18 + FAISS memory banks), reaching **0.977 mean image AUROC** / **0.973 mean pixel AUROC** across 15 categories (vs. 0.669 / 0.505 for the baseline); exported to ONNX and deployed as a FastAPI + React demo with ~97ms median end-to-end latency on CPU.
 
 ## Author
 
