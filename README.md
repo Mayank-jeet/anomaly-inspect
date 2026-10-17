@@ -5,7 +5,7 @@ anomaly-inspect finds and localizes manufacturing defects in photos of industria
 Two methods are built and compared from scratch: a convolutional-autoencoder baseline and a **PatchCore-style** method (frozen ResNet-18 + FAISS memory banks), trained and evaluated on [MVTec AD](https://www.mvtec.com/company/research/datasets/mvtec-ad), exported to ONNX, and served through a FastAPI + React demo.
 
 🔗 **Live Application:** https://anomaly-inspect.vercel.app
-🔗 **API:** https://anomaly-inspect-5m7u.onrender.com
+🔗 **API (interactive docs):** https://anomaly-inspect-5m7u.onrender.com/docs
 
 > The backend runs on a free Render instance and loads model artifacts on demand — the first prediction for each category is slower (downloading its ~26 MB memory bank) and the service may take a few seconds to wake up after inactivity. See [Notes on the live demo](#notes-on-the-live-demo).
 

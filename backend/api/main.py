@@ -65,6 +65,12 @@ if SAMPLES_DIR.exists():
     app.mount("/sample-files", StaticFiles(directory=SAMPLES_DIR), name="sample-files")
 
 
+@app.get("/", include_in_schema=False)
+def root():
+    """Landing route, so opening the bare API URL shows something useful instead of 404."""
+    return {"service": "anomaly-inspect API", "docs": "/docs", "health": "/health"}
+
+
 @app.get("/health", response_model=HealthResponse)
 def health():
     inf = app.state.inferencer
