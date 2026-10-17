@@ -1,4 +1,4 @@
-"""Stage E: ablations. Change ONE setting at a time, rebuild banks, re-evaluate.
+"""ablations. Change ONE setting at a time, rebuild banks, re-evaluate.
 Writes results/tables/ablations.csv.
 
 Set ABLATION_CATEGORIES below to a subset for a fast first pass, or to
@@ -104,7 +104,6 @@ def main():
 
     rows = []
 
-    # --- baseline (matches Step 12's settings, for reference in the same table) ---
     print("\n[baseline] layer2+layer3, coreset_ratio=0.1")
     extractor = PatchFeatureExtractor().to(device).eval()
     rows.append(run_variant(cfg, "baseline (layer2+3, 10% coreset)", extractor, device,
@@ -126,7 +125,6 @@ def main():
     df.to_csv(out_path, index=False)
     print(f"\nsaved to {out_path}")
     print(df)
-
 
 if __name__ == "__main__":
     main()
