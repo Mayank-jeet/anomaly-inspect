@@ -1,4 +1,7 @@
-variant,mean_image_auroc,mean_pixel_auroc,mean_bank_size_mb
-"baseline (layer2+3, 10% coreset)",0.9824681289366385,0.9816324891837903,26.6143798828125
-layer2 only,0.9881674009520179,0.982521245724504,8.8714599609375
-coreset_ratio=1%,0.9829303148292312,0.9782034840139495,2.6605224609375
+variant,n_categories,categories,mean_image_auroc,mean_pixel_auroc,mean_bank_size_mb,extract_ms,search_ms,latency_ms
+"baseline (layer2+3, 10% coreset)",4,"bottle,carpet,screw,metal_nut",0.9825,0.9816,27.9072,20.7419,34.5421,55.284
+layer2 only,4,"bottle,carpet,screw,metal_nut",0.9882,0.9825,9.3024,26.3858,35.1607,61.5466
+coreset_ratio=1%,4,"bottle,carpet,screw,metal_nut",0.9829,0.9782,2.7898,24.8283,8.7687,33.597
+sigma=0 (no blur),4,"bottle,carpet,screw,metal_nut",0.9784,0.9812,27.9072,83.3929,128.8978,212.2907
+sigma=2,4,"bottle,carpet,screw,metal_nut",0.9802,0.9814,27.9072,20.0763,33.2614,53.3377
+sigma=8,4,"bottle,carpet,screw,metal_nut",0.9817,0.9814,27.9072,20.4699,36.3339,56.8038

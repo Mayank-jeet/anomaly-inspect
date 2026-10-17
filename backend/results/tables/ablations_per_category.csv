@@ -1,0 +1,25 @@
+variant,category,image_auroc,pixel_auroc,bank_mb,extract_ms,search_ms
+"baseline (layer2+3, 10% coreset)",bottle,1.0,0.978,22.7589,20.7674,31.9745
+"baseline (layer2+3, 10% coreset)",carpet,0.9787,0.9873,30.3452,20.1481,36.2822
+"baseline (layer2+3, 10% coreset)",screw,0.958,0.99,34.6813,20.1429,41.6803
+"baseline (layer2+3, 10% coreset)",metal_nut,0.9932,0.9712,23.8433,21.9093,28.2312
+layer2 only,bottle,1.0,0.982,7.5863,15.6564,13.1319
+layer2 only,carpet,0.9876,0.9876,10.1151,15.0956,19.2826
+layer2 only,screw,0.9705,0.9937,11.5604,58.7889,91.5465
+layer2 only,metal_nut,0.9946,0.9668,7.9478,16.0025,16.6819
+coreset_ratio=1%,bottle,1.0,0.9775,2.2748,24.2861,7.7239
+coreset_ratio=1%,carpet,0.9807,0.9864,3.0336,25.2563,9.3516
+coreset_ratio=1%,screw,0.9588,0.9818,3.4668,24.8731,10.2667
+coreset_ratio=1%,metal_nut,0.9922,0.9671,2.3839,24.8978,7.7324
+sigma=0 (no blur),bottle,1.0,0.9782,22.7589,20.2115,27.8825
+sigma=0 (no blur),carpet,0.9751,0.9872,30.3452,79.0093,166.566
+sigma=0 (no blur),screw,0.9481,0.9898,34.6813,102.5834,187.2131
+sigma=0 (no blur),metal_nut,0.9902,0.9698,23.8433,131.7675,133.9294
+sigma=2,bottle,1.0,0.9782,22.7589,19.9047,27.2152
+sigma=2,carpet,0.9763,0.9873,30.3452,19.6328,34.7989
+sigma=2,screw,0.9529,0.9899,34.6813,19.9066,39.5283
+sigma=2,metal_nut,0.9917,0.9703,23.8433,20.861,31.5032
+sigma=8,bottle,1.0,0.9773,22.7589,20.4321,30.2884
+sigma=8,carpet,0.9799,0.9867,30.3452,20.9001,40.3982
+sigma=8,screw,0.9529,0.9891,34.6813,20.3033,43.4461
+sigma=8,metal_nut,0.9941,0.9727,23.8433,20.2441,31.2031
