@@ -4,6 +4,7 @@ Endpoints: GET /health, GET /categories, GET /samples/{category}, POST /predict
 """
 import json
 import os
+import urllib.error
 from contextlib import asynccontextmanager
 from pathlib import Path
 
@@ -109,3 +110,7 @@ def predict(file: UploadFile = File(...), category: str = Form(...)):
         return inf.predict(data, category)
     except InvalidImageError as e:
         raise HTTPException(status_code=400, detail=str(e))
+    except (FileNotFoundError, urllib.error.URLError):
+        # The category's memory bank is missing and could not be downloaded (bad BANKS_URL, no network).
+        raise HTTPException(status_code=503,
+                            detail="Model data for this category is temporarily unavailable. Please try again later.")
