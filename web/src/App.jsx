@@ -108,13 +108,32 @@ export default function App() {
   const ready = server === "ready";
 
   return (
-    <main className="app">
-      <header>
-        <h1>anomaly-inspect</h1>
-        <p className="subtitle">
-          Unsupervised defect detection on MVTec AD. The model was trained on defect-free images only.
-        </p>
+    <>
+      <header className="site-header">
+        <div className="brand">
+          <svg className="brand-mark" viewBox="0 0 32 32" aria-hidden="true">
+            <rect x="1" y="1" width="30" height="30" rx="9" fill="currentColor" opacity="0.12" />
+            <path
+              d="M8 12V9a1 1 0 0 1 1-1h3M24 12V9a1 1 0 0 0-1-1h-3M8 20v3a1 1 0 0 0 1 1h3M24 20v3a1 1 0 0 1-1 1h-3"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+            />
+            <circle cx="16" cy="16" r="3.5" fill="#e5484d" />
+          </svg>
+          <h1 className="brand-name">
+            <span className="brand-strong">Anomaly</span>
+            <span className="brand-accent">Inspect</span>
+          </h1>
+        </div>
+        <span className="brand-tag">Visual defect detection</span>
       </header>
+
+      <main className="app">
+      <p className="subtitle">
+        Unsupervised defect detection on MVTec AD. The model was trained on defect-free images only.
+      </p>
 
       {(server === "checking" || server === "waking") && (
         <div className="banner info">
@@ -149,6 +168,7 @@ export default function App() {
       <footer>
         Dataset: MVTec AD (Bergmann et al.), licensed CC BY-NC-SA 4.0, non-commercial use only.
       </footer>
-    </main>
+      </main>
+    </>
   );
 }
